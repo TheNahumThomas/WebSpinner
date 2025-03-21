@@ -1,13 +1,14 @@
-package cmd
+package main
 
 import (
 	"flag"
 	"fmt"
+	"webspinner/cmd"
 )
 
 func main() {
 
-	c := Config{}
+	c := cmd.Config{}
 	c.Setup()
 
 	flag.Parse()

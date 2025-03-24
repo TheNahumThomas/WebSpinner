@@ -15,4 +15,6 @@ func main() {
 
 	fmt.Println(c.GetMessage())
 
+	cmd.DependencyStatus(c.Tech)
+
 }

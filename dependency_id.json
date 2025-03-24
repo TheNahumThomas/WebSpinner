@@ -1,0 +1,58 @@
+{
+    "dependencies": {
+        "git_windows": {
+            "dependency_string": "Git.Git"
+        },
+        "git_darwin": {
+            "dependency_string": "git"
+        },
+        "git_linux": {
+            "dependency_string": "git"
+        },
+        "node_windows": {
+            "dependency_string": "OpenJS.NodeJS"
+        },
+        "node_darwin": {
+            "dependency_string": "node"
+        },
+        "node_linux": {
+            "dependency_string": "nodejs"
+        },
+        "python_windows": {
+            "dependency_string": "Python.Python"
+        },
+        "python_darwin": {
+            "dependency_string": "python"
+        },
+        "python_linux": {
+            "dependency_string": "python3"
+        },
+        "php_windows": {
+            "dependency_string": "PHP.PHP.8.4"
+        },
+        "php_darwin": {
+            "dependency_string": "php"
+        },
+        "php_linux": {
+            "dependency_string": "php"
+        },
+        "wordpress_windows": {
+            "dependency_string": "WordPress.WordPress"
+        },
+        "wordpress_darwin": {
+            "dependency_string": "wordpress"
+        },
+        "wordpress_linux": {
+            "dependency_string": "wordpress"
+        },
+        "sqlite3_windows": {
+            "dependency_string": "SQLite.sqlite"
+        },
+        "sqlite3_darwin": {
+            "dependency_string": "sqlite"
+        },
+        "sqlite3_linux": {
+            "dependency_string": "sqlite3"
+        }
+    }
+}

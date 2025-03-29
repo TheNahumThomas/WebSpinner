@@ -106,21 +106,11 @@ func installDependency(userOs string, dependency string) int {
 		fmt.Println("Attempting to install Wordpress using curl, please follow any prompts")
 		url := "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
 		output := "wp-cli.phar"
-		cmd = exec.Command("powershell", "-Command", "curl", "-o", output, url)
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("Error installing %s: %v\n", dependency, err)
-			return -1
-		}
 		switch userOs {
 		case "windows":
-			// powershell commands to a) get directory for wp-cli.phar b) create a new batch file acting as a command alias c) add that alias to the path temporarily
-			cmd = exec.Command("powershell", "-Command",
-				"$cwd = Get-Location; "+
-					"New-Item -Name wp.bat -ItemType File -Force; "+
-					"Set-Content -Path wp.bat -Value \"@ECHO OFF`nphp $cwd\\wp-cli.phar %*\"; "+
-					"$env:Path += \";$cwd\"")
+			cmd = exec.Command("powershell", "-Command", "curl", "-o", output, url)
 		default:
-			cmd = exec.Command("chmod", "+x", "wp-cli.phar;", "sudo", "mv", "wp-cli.phar", "/usr/local/bin/wp")
+			cmd = exec.Command("curl", "-o", output, url)
 		}
 	}
 
@@ -129,6 +119,6 @@ func installDependency(userOs string, dependency string) int {
 		return -1
 	}
 
-	fmt.Printf("%s installed successfully", dependency)
+	fmt.Printf("%s installed successfully \n", dependency)
 	return 0
 }

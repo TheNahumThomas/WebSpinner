@@ -16,11 +16,6 @@ func BuildProject(tech string, projectName string) {
 
 func createDirectory(projectName string) string {
 
-	/*if err != nil {
-		fmt.Println("error determining root directory")
-		os.Exit(1)
-	}*/
-
 	var root string
 	if runtime.GOOS == "windows" {
 		root = os.Getenv("SystemDrive")
@@ -41,7 +36,7 @@ func createDirectory(projectName string) string {
 
 }
 
-func populateProject(tech string, projectName string, wd string) {
+func populateProject(tech string, wd string) {
 
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -64,12 +59,11 @@ func populateProject(tech string, projectName string, wd string) {
 
 	case "python":
 
-		pyConfig(wd, projectName)
+		pyConfig(wd)
 
 	case "wordpress":
 
 		wpConfig(wd)
-
 	case "php":
 
 		phpConfig(wd)
@@ -85,11 +79,11 @@ func dependencyCall(tech string, projectName string) {
 	case 0:
 		fmt.Println("Technology Successfully Installed")
 		wd := createDirectory(projectName)
-		populateProject(tech, projectName, wd)
+		populateProject(tech, wd)
 	case 1:
 		fmt.Println("Technology Found")
 		wd := createDirectory(projectName)
-		populateProject(tech, projectName, wd)
+		populateProject(tech, wd)
 	case -1:
 		os.Exit(1)
 	}
@@ -97,29 +91,35 @@ func dependencyCall(tech string, projectName string) {
 
 func nodeConfig(wd string) {
 
-	fmt.Println("Node Configuration Begun")
+	fmt.Println("PHP Configuration Begun")
 
-	cmd := exec.Command("npm", "init", "-y")
-	cmd.Dir = wd //  executes in the current directory
-	_, err := cmd.CombinedOutput()
-
+	pwd, err := os.Executable()
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println(err)
+	}
+	pwd = filepath.Dir(pwd)
+
+	script := filepath.Join(pwd, "scripts", "nodeSetup.sh")
+	newScript := filepath.Join(wd, "nodeSetup.sh")
+	err = os.Link(script, newScript)
+	if err != nil {
+		fmt.Println(err)
 	}
 
-	cmd = exec.Command("npm", "install", "express")
-	cmd.Dir = wd
+	os.Chdir(wd)
+	cmd := exec.Command("bash", "nodeSetup.sh")
+	cmd.Dir = wd //  executes in the current directory
 	_, err = cmd.CombinedOutput()
 
 	if err != nil {
 		fmt.Println("Error:", err)
 	}
 
-	fmt.Println("Node Configuration Complete")
+	fmt.Println("PHP Configuration Complete")
 
 }
 
-func pyConfig(wd string, projectName string) {
+func pyConfig(wd string) {
 
 	fmt.Println("Python Configuration Begun")
 
@@ -129,14 +129,15 @@ func pyConfig(wd string, projectName string) {
 	}
 	pwd = filepath.Dir(pwd)
 
-	script := filepath.Join(pwd, "pySetup.sh")
-	newScript := filepath.Join((os.Getenv("SystemDrive") + "\\"), projectName, "pySetup.sh")
+	script := filepath.Join(pwd, "scripts", "pySetup.sh")
+	newScript := filepath.Join(wd, "pySetup.sh")
 	err = os.Link(script, newScript)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	cmd := exec.Command("powershell", "-Command", "cd", wd, ";", "bash", "pySetup.sh")
+	os.Chdir(wd)
+	cmd := exec.Command("bash", "pySetup.sh")
 	cmd.Dir = wd
 
 	_, err = cmd.CombinedOutput()
@@ -152,16 +153,29 @@ func wpConfig(wd string) {
 
 	fmt.Println("Wordpress Configuration Begun")
 
-	cmd := exec.Command("wp", "core", "download")
-	cmd.Dir = wd //  executes in the current directory
-	_, err := cmd.CombinedOutput()
-
+	pwd, err := os.Executable()
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println(err)
+	}
+	pwd = filepath.Dir(pwd)
+
+	script := filepath.Join(pwd, "scripts", "wpSetup.sh")
+	newScript := filepath.Join(wd, "wpSetup.sh")
+	wpCli := filepath.Join(pwd, "wp-cli.phar")
+	newWpCli := filepath.Join(wd, "wp-cli.phar")
+
+	err = os.Link(wpCli, newWpCli)
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = os.Link(script, newScript)
+	if err != nil {
+		fmt.Println(err)
 	}
 
-	cmd = exec.Command("npm", "install", "express")
-	cmd.Dir = wd
+	os.Chdir(wd)
+	cmd := exec.Command("bash", "wpSetup.sh")
+	cmd.Dir = wd //  executes in the current directory
 	_, err = cmd.CombinedOutput()
 
 	if err != nil {
@@ -172,18 +186,25 @@ func wpConfig(wd string) {
 }
 
 func phpConfig(wd string) {
-	fmt.Println("PHP Configuration Begun")
-	setupScript := "scripts\\phpSetup.sh"
-	cmd := exec.Command("bash", setupScript)
-	cmd.Dir = wd //  executes in the current directory
-	_, err := cmd.CombinedOutput()
 
+	fmt.Println("PHP Configuration Begun")
+
+	pwd, err := os.Executable()
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println(err)
+	}
+	pwd = filepath.Dir(pwd)
+
+	script := filepath.Join(pwd, "scripts", "phpSetup.sh")
+	newScript := filepath.Join(wd, "phpSetup.sh")
+	err = os.Link(script, newScript)
+	if err != nil {
+		fmt.Println(err)
 	}
 
-	cmd = exec.Command("npm", "install", "express")
-	cmd.Dir = wd
+	os.Chdir(wd)
+	cmd := exec.Command("bash", "phpSetup.sh")
+	cmd.Dir = wd //  executes in the current directory
 	_, err = cmd.CombinedOutput()
 
 	if err != nil {

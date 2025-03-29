@@ -37,7 +37,7 @@
             "dependency_string": "php"
         },
         "wordpress_windows": {
-            "dependency_string": "WordPress.WordPress"
+            "dependency_string": "Automattic.Wordpress"
         },
         "wordpress_darwin": {
             "dependency_string": "wordpress"
@@ -53,6 +53,15 @@
         },
         "sqlite3_linux": {
             "dependency_string": "sqlite3"
-        }
+        },
+        "curl_windows": {
+            "dependency_string": "cURL.cURL"
+        },
+        "curl_darwin": {
+            "dependency_string": "curl"
+        },
+        "curl_linux": {
+            "dependency_string": "curl"
+        } 
     }
 }

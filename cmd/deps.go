@@ -27,17 +27,17 @@ func (d *dependencies) findDependency(key string) (string, bool) {
 
 func DependencyStatus(dependency string) int {
 
-	// Check if the node_modules directory exists
-	status := exec.Command("%s", "--version", dependency)
+	// Check if the dependency is already installed
+	status := exec.Command(dependency, "--version")
 	output, err := status.Output()
 	if err != nil {
-		fmt.Printf("%s is not installed", dependency)
+		fmt.Printf("%s is not installed \n", dependency)
 		return getDependencies(dependency)
 	}
-
-	fmt.Printf("%s is installed - version: %s", dependency, output)
-	// status code returns 1 if dependency is already installed, 0 if dependency is installed successfully, -1 if dependency installation fails
+	// If the dependency is already installed, prints the version number and returns status code 1
+	fmt.Printf("%s is installed - version: %s \n", dependency, output)
 	return 1
+	// status code returns 1 if dependency is already installed, 0 if dependency is installed successfully, -1 if dependency installation fails
 }
 
 func getDependencies(dependency string) int {
@@ -66,14 +66,11 @@ func getDependencies(dependency string) int {
 	// match user os to find package installation moniker
 	if userOs == "windows" || userOs == "darwin" || userOs == "linux" {
 		jsonObject := fmt.Sprintf("%s_%s", dependency, userOs)
-		fmt.Println(packageList.Dependencies)
-		fmt.Println(jsonObject)
 		dependencyId, exists := packageList.findDependency(jsonObject)
 		if !exists {
 			fmt.Println("Dependency not found in list")
 			return -1
 		}
-		fmt.Println(dependencyId)
 		// call installDependency function to install the dependency and return status code
 		return installDependency(userOs, dependencyId)
 	} else {
@@ -84,39 +81,54 @@ func getDependencies(dependency string) int {
 }
 
 func installDependency(userOs string, dependency string) int {
+	var cmd *exec.Cmd
 
-	switch userOs {
-	// Windows installation using winget package manager
-	case "windows":
-		fmt.Println("Installing dependency using winget, the installer may ask for administrative permissions")
-		cmd := exec.Command("winget", "install", "-e", "--id", dependency, "--silent", "--accept-package-agreements", "--accept-source-agreements")
-		err := cmd.Run()
-		if err != nil {
-			fmt.Printf("Error installing %s", dependency)
+	if dependency != "Automattic.Wordpress" {
+		// switch statement to install dependencies based on user's package manager
+		switch userOs {
+		case "windows":
+			// installs dependency with silent flag and accepts package/source agreements
+			fmt.Println("Attempting to install dependency using winget, please follow any prompts")
+			cmd = exec.Command("winget", "install", "-e", "--id", dependency, "--silent", "--accept-package-agreements", "--accept-source-agreements")
+		case "linux":
+			fmt.Println("Attempting to install dependency using apt, please follow any prompts")
+			cmd = exec.Command("sudo", "apt", "install", "-y", dependency)
+		case "darwin":
+			fmt.Println("Attempting to install dependency using homebrew, please follow any prompts")
+			cmd = exec.Command("brew", "install", dependency)
+		default:
+			fmt.Printf("Unsupported OS: %s \n", userOs)
 			return -1
 		}
-	// Linux (debian, ubuntu) installation using apt package manager with Super User permissions
-	case "linux":
-		cmd := exec.Command("sudo", "apt", "install", dependency)
-		err := cmd.Run()
-		if err != nil {
-			fmt.Printf("Error installing %s", dependency)
+	} else {
+		// installs wordpress using curl
+		getDependencies("php")
+		fmt.Println("Attempting to install Wordpress using curl, please follow any prompts")
+		url := "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+		output := "wp-cli.phar"
+		cmd = exec.Command("powershell", "-Command", "curl", "-o", output, url)
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("Error installing %s: %v\n", dependency, err)
 			return -1
 		}
-	// MacOS installation using Homebrew package manager
-	case "darwin":
-		cmd := exec.Command("brew", "install", dependency)
-		err := cmd.Run()
-		if err != nil {
-			fmt.Printf("Error installing %s", dependency)
-			return -1
+		switch userOs {
+		case "windows":
+			// powershell commands to a) get directory for wp-cli.phar b) create a new batch file acting as a command alias c) add that alias to the path temporarily
+			cmd = exec.Command("powershell", "-Command",
+				"$cwd = Get-Location; "+
+					"New-Item -Name wp.bat -ItemType File -Force; "+
+					"Set-Content -Path wp.bat -Value \"@ECHO OFF`nphp $cwd\\wp-cli.phar %*\"; "+
+					"$env:Path += \";$cwd\"")
+		default:
+			cmd = exec.Command("chmod", "+x", "wp-cli.phar;", "sudo", "mv", "wp-cli.phar", "/usr/local/bin/wp")
 		}
-	default:
-		fmt.Printf("Command Line Arguments Couldn't be Established")
+	}
+
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Error installing %s: %v\n", dependency, err)
 		return -1
 	}
 
 	fmt.Printf("%s installed successfully", dependency)
 	return 0
-
 }

@@ -15,6 +15,9 @@ func main() {
 
 	fmt.Println(c.GetMessage())
 
-	cmd.DependencyStatus(c.Tech)
+	cmd.DependencyStatus("git")
+	cmd.DependencyStatus("sqlite3")
+	cmd.DependencyStatus("curl")
+	cmd.BuildProject(c.Tech, c.Name)
 
 }

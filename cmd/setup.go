@@ -91,7 +91,7 @@ func dependencyCall(tech string, projectName string) {
 
 func nodeConfig(wd string) {
 
-	fmt.Println("PHP Configuration Begun")
+	fmt.Println("Node.js Configuration Begun")
 
 	pwd, err := os.Executable()
 	if err != nil {
@@ -99,23 +99,39 @@ func nodeConfig(wd string) {
 	}
 	pwd = filepath.Dir(pwd)
 
-	script := filepath.Join(pwd, "scripts", "nodeSetup.sh")
-	newScript := filepath.Join(wd, "nodeSetup.sh")
-	err = os.Link(script, newScript)
-	if err != nil {
-		fmt.Println(err)
-	}
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
 
-	os.Chdir(wd)
-	cmd := exec.Command("bash", "nodeSetup.sh")
-	cmd.Dir = wd //  executes in the current directory
-	_, err = cmd.CombinedOutput()
+		script := filepath.Join(pwd, "scripts", "nodeSetup.sh")
+		newScript := filepath.Join(wd, "nodeSetup.sh")
+		err = os.Link(script, newScript)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		os.Chdir(wd)
+		cmd := exec.Command("bash", "nodeSetup.sh")
+		cmd.Dir = wd // executes in the webapp directory
+		_, err = cmd.CombinedOutput()
+
+	} else {
+
+		script := filepath.Join(pwd, "scripts", "nodeSetup.bat")
+		newScript := filepath.Join(wd, "nodeSetup.bat")
+		err = os.Link(script, newScript)
+		if err != nil {
+			fmt.Println(err)
+		}
+		os.Chdir(wd)
+		cmd := exec.Command("cmd", "/C", "nodeSetup.bat")
+		cmd.Dir = wd
+		_, err = cmd.CombinedOutput()
+	}
 
 	if err != nil {
 		fmt.Println("Error:", err)
 	}
 
-	fmt.Println("PHP Configuration Complete")
+	fmt.Println("Node.js Configuration Complete")
 
 }
 

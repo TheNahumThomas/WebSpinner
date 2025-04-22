@@ -1,16 +1,16 @@
 # Create a virtual environment
 echo "beginning script"
-sudo apt-get update
-sudo apt install python3.12-venv
+apt-get update
+apt install python3.12-venv
 python3 -m ensurepip
 python3 -m venv venv
 echo "env created"
 source venv/bin/activate
 echo "env activated"
-# Install Flask
+# Install Flask as dependency (this also works for WSL and is actually necessary for it to work)
 python3 -m pip install Flask
 echo "flask installed"
-# Create the main Flask application file
+# Create the main Flask server file
 mkdir "app"
 mkdir "config"
 cat <<EOF > app/main.py
@@ -65,6 +65,9 @@ cat <<EOF > README.md
 # Secure Flask Application
 
 This is a basic Flask application with configurations to mitigate common vulnerabilities.
+
+Navigate to the new project directory (should be in filesystem root), activate the virtual environment if it isn't already activated and run '[wsl if on windows] venv/bin/python3 app/main.py' to start the server."
+
 EOF
 
 # Print completion message

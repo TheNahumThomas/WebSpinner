@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 # Make wp-cli executable
-sudo apt install php
-sudo apt install php-mysql
+apt install php
+apt install php-mysql
 chmod +x wp-cli.phar
-sudo mv wp-cli.phar /usr/local/bin/wp
+mv wp-cli.phar /usr/local/bin/wp
 
 # Generate secure, random passwords
 DB_PASS="$(openssl rand -hex 16)"

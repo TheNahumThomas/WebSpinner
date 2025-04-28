@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -12,19 +11,6 @@ import (
 // BuildProject is the entry point for the project setup process
 func BuildProject(tech string, projectName string) {
 
-	ld, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Println("error determining home directory")
-		os.Exit(1)
-	}
-	logFile, err := CreateLogFile(ld, projectName)
-	if err != nil {
-		fmt.Println("error creating log file")
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	SetupLogger(logFile)
-	log.Println("Logging Started")
 	dependencyCall(tech, projectName)
 
 }
@@ -128,7 +114,7 @@ func nodeConfig(wd string) {
 		if err != nil {
 			log.Println(err)
 		}
-
+		log.Println("Setup script link created, running setup script")
 		os.Chdir(wd)
 		cmd := exec.Command("bash", "nodeSetup.sh")
 		cmd.Dir = wd
@@ -142,6 +128,7 @@ func nodeConfig(wd string) {
 		if err != nil {
 			log.Println(err)
 		}
+		log.Println("Setup script link created, running setup script")
 		os.Chdir(wd)
 		cmd := exec.Command("cmd", "/C", "nodeSetup.bat")
 		cmd.Dir = wd
@@ -172,7 +159,7 @@ func pyConfig(wd string) {
 	if err != nil {
 		log.Println(err)
 	}
-
+	log.Println("Setup script link created, running setup script")
 	os.Chdir(wd)
 	cmd := exec.Command("bash", "pySetup.sh")
 	cmd.Dir = wd
@@ -209,7 +196,7 @@ func wpConfig(wd string) {
 	if err != nil {
 		log.Println(err)
 	}
-
+	log.Println("Setup script link created, running setup script")
 	os.Chdir(wd)
 	cmd := exec.Command("bash", "wpSetup.sh")
 	cmd.Dir = wd
@@ -238,7 +225,7 @@ func phpConfig(wd string) {
 	if err != nil {
 		log.Println(err)
 	}
-
+	log.Println("Setup script link created, running setup script")
 	os.Chdir(wd)
 	cmd := exec.Command("bash", "phpSetup.sh")
 	cmd.Dir = wd

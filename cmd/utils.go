@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -23,7 +24,7 @@ func (c *Config) Setup() {
 	// Check if technology is specified
 
 	if c.Tech == "" {
-		fmt.Println("err: no technology specified")
+		log.Println("err: no technology specified")
 		flag.Usage()
 		os.Exit(1)
 	}

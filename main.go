@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 	cmd.SetupLogger(logFile)
-	log.Println("Logging Started")
+	log.Printf("Logging Started, Log file created at: %s", ld)
 
 	cmd.DependencyStatus("git")
 	cmd.DependencyStatus("sqlite3")

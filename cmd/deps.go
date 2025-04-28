@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -31,11 +32,11 @@ func DependencyStatus(dependency string) int {
 	status := exec.Command(dependency, "--version")
 	output, err := status.Output()
 	if err != nil {
-		fmt.Printf("%s is not installed \n", dependency)
+		log.Printf("%s is not installed \n", dependency)
 		return getDependencies(dependency)
 	}
 	// If the dependency is already installed, prints the version number and returns status code 1
-	fmt.Printf("%s is installed - version: %s \n", dependency, output)
+	log.Printf("%s is installed - version: %s \n", dependency, output)
 	return 1
 	// status code returns 1 if dependency is already installed, 0 if dependency is installed successfully, -1 if dependency installation fails
 }
@@ -48,7 +49,7 @@ func getDependencies(dependency string) int {
 	// Open the dependency_id.json file
 	jsonFile, JsonfileErr := os.Open("dependency_id.json")
 	if JsonfileErr != nil {
-		fmt.Println("Error reading dependency names from file")
+		log.Println("Error reading dependency names from file")
 		return -1
 	}
 	defer jsonFile.Close()
@@ -59,7 +60,7 @@ func getDependencies(dependency string) int {
 	// JSON structure "unmarshalled" into struct of type packageList.dependencies
 	JsonErr := json.Unmarshal(byteValue, &packageList)
 	if JsonErr != nil {
-		fmt.Println("Error reading dependency names from file")
+		log.Println("Error reading dependency names from file")
 		return -1
 	}
 
@@ -68,13 +69,14 @@ func getDependencies(dependency string) int {
 		jsonObject := fmt.Sprintf("%s_%s", dependency, userOs)
 		dependencyId, exists := packageList.findDependency(jsonObject)
 		if !exists {
-			fmt.Println("Dependency not found in list")
+			log.Println("Dependency not found in list")
 			return -1
 		}
 		// call installDependency function to install the dependency and return status code
+		log.Println("Calling fucntion to install dependency")
 		return installDependency(userOs, dependencyId)
 	} else {
-		fmt.Println("Unsupported OS")
+		log.Println("Unsupported OS")
 		return -1
 	}
 
@@ -88,22 +90,22 @@ func installDependency(userOs string, dependency string) int {
 		switch userOs {
 		case "windows":
 			// installs dependency with silent flag and accepts package/source agreements
-			fmt.Println("Attempting to install dependency using winget, please follow any prompts")
+			log.Println("Attempting to install dependency using winget, please follow any prompts")
 			cmd = exec.Command("winget", "install", "-e", "--id", dependency, "--silent", "--accept-package-agreements", "--accept-source-agreements")
 		case "linux":
-			fmt.Println("Attempting to install dependency using apt, please follow any prompts")
+			log.Println("Attempting to install dependency using apt, please follow any prompts")
 			cmd = exec.Command("sudo", "apt", "install", "-y", dependency)
 		case "darwin":
-			fmt.Println("Attempting to install dependency using homebrew, please follow any prompts")
+			log.Println("Attempting to install dependency using homebrew, please follow any prompts")
 			cmd = exec.Command("brew", "install", dependency)
 		default:
-			fmt.Printf("Unsupported OS: %s \n", userOs)
+			log.Printf("Unsupported OS: %s \n", userOs)
 			return -1
 		}
 	} else {
 		// installs wordpress using curl
 		getDependencies("php")
-		fmt.Println("Attempting to install Wordpress using curl, please follow any prompts")
+		log.Println("Attempting to install Wordpress using curl, please follow any prompts")
 		url := "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
 		output := "wp-cli.phar"
 		switch userOs {
@@ -115,10 +117,10 @@ func installDependency(userOs string, dependency string) int {
 	}
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error installing %s: %v\n", dependency, err)
+		log.Printf("Error installing %s: %v\n", dependency, err)
 		return -1
 	}
 
-	fmt.Printf("%s installed successfully \n", dependency)
+	log.Printf("%s installed successfully \n", dependency)
 	return 0
 }

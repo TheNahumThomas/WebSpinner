@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"log"
 	"os"
 	"os/exec"
@@ -9,231 +10,166 @@ import (
 )
 
 // BuildProject is the entry point for the project setup process
-func BuildProject(tech string, projectName string) {
+func BuildProject(tech string, projectName string) error {
+	techStatus := DependencyStatus(tech)
+	switch techStatus {
+	case 0:
+		log.Println("Dependency Successfully Installed")
+	case 1:
+		log.Println("Dependency Found")
+	case -1:
+		return errors.New("dependency not found")
+	}
 
-	dependencyCall(tech, projectName)
+	wd, err := createDirectory(projectName)
+	if err != nil {
+		return err
+	}
 
+	err = populateProject(tech, wd)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// This function is private and finds the root directory for the user's file system and creates a new directory with the project name
-func createDirectory(projectName string) string {
-
+// createDirectory spins up a new directory for the project with the desired name at the root of the file system
+func createDirectory(projectName string) (string, error) {
 	var root string
 	if runtime.GOOS == "windows" {
-		root = os.Getenv("SystemDrive")
-		root += "\\"
+		root = os.Getenv("SystemDrive") + "\\"
 	} else {
 		root = "/"
 	}
-	directoryErr := os.Mkdir(filepath.Join(root, projectName), 0755)
-	if directoryErr != nil {
-		log.Println("error creating project directory")
-		log.Println(directoryErr)
-		os.Exit(1)
+
+	wd := filepath.Join(root, projectName)
+	err := os.Mkdir(wd, 0755)
+	if err != nil {
+		return "", err
 	}
 
-	log.Printf("Project %s Directory created successfully, attempting to populate\n", projectName)
-	wd := filepath.Join(root, projectName)
-	return wd
-
+	log.Printf("Project %s Directory created successfully\n", projectName)
+	return wd, nil
 }
 
-// This function is also private and takes the created working directory, initialises a git repository and launches the config process for the selected technology
-func populateProject(tech string, wd string) {
-
-	pwd, err := os.Getwd()
+// populateProject populates the created directory by calling the config function for the selected webapp technology
+func populateProject(tech string, wd string) error {
+	err := os.Chdir(wd)
 	if err != nil {
-		log.Println("error determining working directory")
-		os.Exit(1)
-	}
-	if pwd != wd {
-		os.Chdir(wd)
+		return err
 	}
 
-	cmd := exec.Command("git", "init")
-	gitErr := cmd.Run()
-	if gitErr != nil {
-		log.Println("error initializing git repository - leaving for now")
+	err = initializeGitRepo()
+	if err != nil {
+		log.Println("error initializing git repository:", err)
 	}
 
 	switch tech {
 	case "node":
-		nodeConfig(wd)
-
+		return nodeConfig(wd)
 	case "python":
-
-		pyConfig(wd)
-
+		return pyConfig(wd)
 	case "wordpress":
-
-		wpConfig(wd)
+		return wpConfig(wd)
 	case "php":
-
-		phpConfig(wd)
-
-	}
-
-}
-
-// dependency call is designed to pull in the pre-requisite dependencies for the selected webapp technology and return this to the createDirectory and populateProject functions
-func dependencyCall(tech string, projectName string) {
-
-	techStatus := DependencyStatus(tech)
-	switch techStatus {
-	case 0:
-		log.Println("Technology Successfully Installed")
-		wd := createDirectory(projectName)
-		populateProject(tech, wd)
-	case 1:
-		log.Println("Technology Found")
-		wd := createDirectory(projectName)
-		populateProject(tech, wd)
-	case -1:
-		os.Exit(1)
+		return phpConfig(wd)
+	default:
+		return errors.New("unsupported technology")
 	}
 }
 
-// The below private functions are called by the populateProject function and are designed to run the corresponding setup scripts for the selected technology.
-// The scripts are located in the scripts directory and mostly consist of bash files with WordPress using the WP-CLI tool to build the project and Node using Batch on Windows.
+// initializeGitRepo initializes a git repository in the working directory
+func initializeGitRepo() error {
+	cmd := exec.Command("git", "init")
+	return cmd.Run()
+}
 
-func nodeConfig(wd string) {
+// nodeConfig sets up a Node.js project
+func nodeConfig(wd string) error {
+	return runSetupScript(wd, "nodeSetup")
+}
 
-	log.Println("Node.js Configuration Begun")
+// pyConfig sets up a Python project
+func pyConfig(wd string) error {
+	return runSetupScript(wd, "pySetup")
+}
 
-	pwd, err := os.Executable() // gets path to the WebSpinner executable
+// wpConfig sets up a WordPress project
+func wpConfig(wd string) error {
+	pwd, err := os.Executable()
 	if err != nil {
-		log.Println(err)
+		log.Println("Error getting executable path:", err)
+		return err
 	}
 	pwd = filepath.Dir(pwd)
+	wpCLI := filepath.Join(pwd, "wp-cli.phar")
+	newWPCLI := filepath.Join(wd, "wp-cli.phar")
+	err = linkFile(wpCLI, newWPCLI)
+	if err != nil {
+		log.Println("Error linking wp-cli.phar:", err)
+		return err
+	}
+	return runSetupScript(wd, "wpSetup")
+}
 
-	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" { // check for unix based OS
+// phpConfig sets up a PHP project
+func phpConfig(wd string) error {
+	return runSetupScript(wd, "phpSetup")
+}
 
-		script := filepath.Join(pwd, "scripts", "nodeSetup.sh")
-		newScript := filepath.Join(wd, "nodeSetup.sh") // Creates new script file in the project directory
-		err = os.Link(script, newScript)               // Creates a hard link to the script file (essentially copying its contents) so it can be run in the project directory
+// runSetupScript runs a setup script for the given technology, this used to be several individual but untestable functions
+// they have been abstracted into this for the sake of DRY and testability
+func runSetupScript(wd, scriptName string) error {
+	pwd, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	pwd = filepath.Dir(pwd)
+	newScript := ""
+	keywordOne := "bash"
+	if scriptName == "nodeSetup" && runtime.GOOS == "windows" {
+		script := filepath.Join(pwd, "scripts", scriptName+".bat")
+		newScript = filepath.Join(wd, scriptName+".bat")
+		keywordOne = "cmd"
+		err = linkFile(script, newScript)
 		if err != nil {
-			log.Println(err)
+			return err
 		}
-		log.Println("Setup script link created, running setup script")
-		os.Chdir(wd)
-		cmd := exec.Command("bash", "nodeSetup.sh")
-		cmd.Dir = wd
-		_, err = cmd.CombinedOutput()
-
-	} else { // run batch file if on Windows
-
-		script := filepath.Join(pwd, "scripts", "nodeSetup.bat")
-		newScript := filepath.Join(wd, "nodeSetup.bat")
-		err = os.Link(script, newScript)
+	} else {
+		script := filepath.Join(pwd, "scripts", scriptName+".sh")
+		newScript = filepath.Join(wd, scriptName+".sh")
+		err = linkFile(script, newScript)
 		if err != nil {
-			log.Println(err)
+			return err
 		}
-		log.Println("Setup script link created, running setup script")
-		os.Chdir(wd)
-		cmd := exec.Command("cmd", "/C", "nodeSetup.bat")
-		cmd.Dir = wd
-		_, err = cmd.CombinedOutput()
 	}
 
+	log.Println("Setup script link created, running setup script:", newScript)
+	var cmd *exec.Cmd
+	if keywordOne == "cmd" {
+		cmd = exec.Command(keywordOne, "/C", filepath.Base(newScript))
+	} else {
+		cmd = exec.Command(keywordOne, filepath.Base(newScript))
+	}
+	cmd.Dir = wd
+
+	// this redirects the script output to the console but isn't logged
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err = cmd.Run()
 	if err != nil {
 		log.Println("Error:", err)
+		return err
 	}
-
-	log.Println("Node.js Configuration Complete")
+	log.Println("Finished running setup script")
+	return nil
 
 }
 
-func pyConfig(wd string) {
-
-	log.Println("Python Configuration Begun")
-
-	pwd, err := os.Executable()
-	if err != nil {
-		log.Println(err)
-	}
-	pwd = filepath.Dir(pwd)
-
-	script := filepath.Join(pwd, "scripts", "pySetup.sh")
-	newScript := filepath.Join(wd, "pySetup.sh")
-	err = os.Link(script, newScript)
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println("Setup script link created, running setup script")
-	os.Chdir(wd)
-	cmd := exec.Command("bash", "pySetup.sh")
-	cmd.Dir = wd
-
-	_, err = cmd.CombinedOutput()
-	if err != nil {
-		log.Println("Error:", err)
-		return
-	}
-
-	log.Println("Python Configuration Complete")
-}
-
-func wpConfig(wd string) {
-
-	log.Println("Wordpress Configuration Begun")
-
-	pwd, err := os.Executable()
-	if err != nil {
-		log.Println(err)
-	}
-	pwd = filepath.Dir(pwd)
-
-	script := filepath.Join(pwd, "scripts", "wpSetup.sh")
-	newScript := filepath.Join(wd, "wpSetup.sh")
-	wpCli := filepath.Join(pwd, "wp-cli.phar")
-	newWpCli := filepath.Join(wd, "wp-cli.phar")
-
-	err = os.Link(wpCli, newWpCli) // Links the installed wordpress command line into the new project directory for use in the setup script so we don't have to globally install it
-	if err != nil {
-		log.Println(err)
-	}
-	err = os.Link(script, newScript)
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println("Setup script link created, running setup script")
-	os.Chdir(wd)
-	cmd := exec.Command("bash", "wpSetup.sh")
-	cmd.Dir = wd
-	_, err = cmd.CombinedOutput()
-
-	if err != nil {
-		log.Println("Error:", err)
-	}
-
-	log.Println("Wordpress Configuration Complete")
-}
-
-func phpConfig(wd string) {
-
-	log.Println("PHP Configuration Begun")
-
-	pwd, err := os.Executable()
-	if err != nil {
-		log.Println(err)
-	}
-	pwd = filepath.Dir(pwd)
-
-	script := filepath.Join(pwd, "scripts", "phpSetup.sh")
-	newScript := filepath.Join(wd, "phpSetup.sh")
-	err = os.Link(script, newScript)
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println("Setup script link created, running setup script")
-	os.Chdir(wd)
-	cmd := exec.Command("bash", "phpSetup.sh")
-	cmd.Dir = wd
-	_, err = cmd.CombinedOutput()
-
-	if err != nil {
-		log.Println("Error:", err)
-	}
-
-	log.Println("PHP Configuration Complete")
+// file link creates a hard link between two files
+// this used to be part of several functions but has also been abstracted out for the sake of DRY and testability
+func linkFile(src, dest string) error {
+	return os.Link(src, dest)
 }

@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Create the project directory structure
-mkdir -p webapp
-cd webapp || exit
-
 # Create the index.php file
 cat <<EOL > index.php
 <?php

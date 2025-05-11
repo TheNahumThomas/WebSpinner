@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	internals "webspinner/internal"
 )
 
 type dependencyPackage struct {
@@ -26,17 +27,16 @@ func (d *dependencies) findDependency(key string) (string, bool) {
 
 // dependencyStatus checks whether dependencies are already installed and calls the appropriate functions to install them if they are not.
 
-func DependencyStatus(dependency string) int {
+func DependencyStatus(cr internals.Commander, dependency string) int {
 
 	// Check if the dependency is already installed
-	status := exec.Command(dependency, "--version")
-	output, err := status.Output()
+	err := cr.RunCommand(dependency, "--version")
 	if err != nil {
 		log.Printf("%s is not installed \n", dependency)
 		return getDependencies(dependency)
 	}
 	// If the dependency is already installed, prints the version number and returns status code 1
-	log.Printf("%s is installed - version: %s \n", dependency, output)
+	log.Printf("%s is installed \n", dependency)
 	return 1
 	// status code returns 1 if dependency is already installed, 0 if dependency is installed successfully, -1 if dependency installation fails
 }

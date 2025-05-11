@@ -6,9 +6,13 @@ import (
 	"log"
 	"os"
 	"webspinner/cmd"
+	internals "webspinner/internal"
 )
 
 func main() {
+
+	fs := internals.OSFileSys{}
+	cr := internals.ExecCommander{}
 
 	c := cmd.Config{}
 	c.Setup()
@@ -31,9 +35,9 @@ func main() {
 	cmd.SetupLogger(logFile)
 	log.Printf("Logging Started, Log file created at: %s", ld)
 
-	cmd.DependencyStatus("git")
-	cmd.DependencyStatus("sqlite3")
-	cmd.DependencyStatus("curl")
-	cmd.BuildProject(c.Tech, c.Name)
+	cmd.DependencyStatus(cr, "git")
+	cmd.DependencyStatus(cr, "sqlite3")
+	cmd.DependencyStatus(cr, "curl")
+	cmd.BuildProject(fs, cr, c.Tech, c.Name)
 
 }

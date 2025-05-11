@@ -7,50 +7,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	internals "webspinner/internal"
 )
 
-type FileSystem interface {
-	Mkdir(name string, perm os.FileMode) error
-	Chdir(directory string) error
-	Link(oldfile, newfile string) error
-}
-
-type Commander interface {
-	RunCommand(command string, kwargs ...string) error
-}
-
-type OSFileSys struct{}
-
-func (fs OSFileSys) Mkdir(name string, perm os.FileMode) error {
-	return os.Mkdir(name, perm)
-}
-
-func (fs OSFileSys) Chdir(directory string) error {
-	return os.Chdir(directory)
-}
-
-func (fs OSFileSys) Link(oldfile, newfile string) error {
-	return os.Link(oldfile, newfile)
-}
-
-type ExecCommander struct{}
-
-func (ec ExecCommander) RunCommand(command string, args ...string) error {
-	cmd := exec.Command(command, args...)
-
-	cmd.Stdout = log.Writer()
-	cmd.Stderr = log.Writer() // This redirects command output (such as setup script output) to the console while also logging it
-
-	return cmd.Run()
-}
-
 // BuildProject is the entry point for the project setup process
-func BuildProject(tech string, projectName string) error {
+func BuildProject(fs internals.FileSystem, cr internals.Commander, tech string, projectName string) error {
 
-	fs := OSFileSys{}
-	cr := ExecCommander{}
-
-	techStatus := DependencyStatus(tech)
+	techStatus := DependencyStatus(cr, tech)
 	switch techStatus {
 	case 0:
 		log.Println("Dependency Successfully Installed")
@@ -74,7 +37,7 @@ func BuildProject(tech string, projectName string) error {
 }
 
 // createDirectory spins up a new directory for the project with the desired name at the root of the file system
-func CreateDirectory(fs FileSystem, projectName string) (string, error) {
+func CreateDirectory(fs internals.FileSystem, projectName string) (string, error) {
 	var root string
 	if runtime.GOOS == "windows" {
 		root = os.Getenv("SystemDrive") + "\\"
@@ -93,7 +56,8 @@ func CreateDirectory(fs FileSystem, projectName string) (string, error) {
 }
 
 // populateProject populates the created directory by calling the config function for the selected webapp technology
-func PopulateProject(fs FileSystem, cr Commander, tech string, wd string) error {
+func PopulateProject(fs internals.FileSystem, cr internals.Commander, tech string, wd string) error {
+
 	err := fs.Chdir(wd)
 	if err != nil {
 		return err
@@ -125,17 +89,17 @@ func InitializeGitRepo() error {
 }
 
 // nodeConfig sets up a Node.js project
-func NodeConfig(fs FileSystem, cr Commander, wd string) error {
+func NodeConfig(fs internals.FileSystem, cr internals.Commander, wd string) error {
 	return RunSetupScript(fs, cr, wd, "nodeSetup")
 }
 
 // pyConfig sets up a Python project
-func PyConfig(fs FileSystem, cr Commander, wd string) error {
+func PyConfig(fs internals.FileSystem, cr internals.Commander, wd string) error {
 	return RunSetupScript(fs, cr, wd, "pySetup")
 }
 
 // wpConfig sets up a WordPress project
-func WpConfig(fs FileSystem, cr Commander, wd string) error {
+func WpConfig(fs internals.FileSystem, cr internals.Commander, wd string) error {
 	pwd, err := os.Executable()
 	if err != nil {
 		log.Println("Error getting executable path:", err)
@@ -144,7 +108,7 @@ func WpConfig(fs FileSystem, cr Commander, wd string) error {
 	pwd = filepath.Dir(pwd)
 	wpCLI := filepath.Join(pwd, "wp-cli.phar")
 	newWPCLI := filepath.Join(wd, "wp-cli.phar")
-	err = LinkFile(fs, wpCLI, newWPCLI)
+	err = fs.Link(wpCLI, newWPCLI)
 	if err != nil {
 		log.Println("Error linking wp-cli.phar:", err)
 		return err
@@ -153,13 +117,13 @@ func WpConfig(fs FileSystem, cr Commander, wd string) error {
 }
 
 // phpConfig sets up a PHP project
-func PhpConfig(fs FileSystem, cr Commander, wd string) error {
+func PhpConfig(fs internals.FileSystem, cr internals.Commander, wd string) error {
 	return RunSetupScript(fs, cr, wd, "phpSetup")
 }
 
 // runSetupScript runs a setup script for the given technology, this used to be several individual but untestable functions
 // they have been abstracted into this for the sake of DRY and testability
-func RunSetupScript(fs FileSystem, cr Commander, wd, scriptName string) error {
+func RunSetupScript(fs internals.FileSystem, cr internals.Commander, wd, scriptName string) error {
 	pwd, err := os.Executable()
 	if err != nil {
 		return err
@@ -177,7 +141,7 @@ func RunSetupScript(fs FileSystem, cr Commander, wd, scriptName string) error {
 		newScript = filepath.Join(wd, scriptName+".sh")
 	}
 
-	err = LinkFile(fs, script, newScript)
+	err = fs.Link(script, newScript)
 	if err != nil {
 		return err
 	}
@@ -188,10 +152,4 @@ func RunSetupScript(fs FileSystem, cr Commander, wd, scriptName string) error {
 	}
 	return cr.RunCommand("bash", filepath.Base(newScript))
 
-}
-
-// file link creates a hard link between two files
-// this used to be part of several functions but has also been abstracted out for the sake of DRY and testability
-func LinkFile(fs FileSystem, src, dest string) error {
-	return fs.Link(src, dest)
 }

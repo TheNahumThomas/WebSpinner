@@ -38,8 +38,8 @@ type ExecCommander struct{}
 func (ec ExecCommander) RunCommand(command string, args ...string) error {
 	cmd := exec.Command(command, args...)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer() // This redirects command output (such as setup script output) to the console while also logging it
 
 	return cmd.Run()
 }

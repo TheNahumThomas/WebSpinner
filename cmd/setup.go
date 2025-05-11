@@ -9,8 +9,47 @@ import (
 	"runtime"
 )
 
+type FileSystem interface {
+	Mkdir(name string, perm os.FileMode) error
+	Chdir(directory string) error
+	Link(oldfile, newfile string) error
+}
+
+type Commander interface {
+	RunCommand(command string, kwargs ...string) error
+}
+
+type OSFileSys struct{}
+
+func (fs OSFileSys) Mkdir(name string, perm os.FileMode) error {
+	return os.Mkdir(name, perm)
+}
+
+func (fs OSFileSys) Chdir(directory string) error {
+	return os.Chdir(directory)
+}
+
+func (fs OSFileSys) Link(oldfile, newfile string) error {
+	return os.Link(oldfile, newfile)
+}
+
+type ExecCommander struct{}
+
+func (ec ExecCommander) RunCommand(command string, args ...string) error {
+	cmd := exec.Command(command, args...)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
 // BuildProject is the entry point for the project setup process
 func BuildProject(tech string, projectName string) error {
+
+	fs := OSFileSys{}
+	cr := ExecCommander{}
+
 	techStatus := DependencyStatus(tech)
 	switch techStatus {
 	case 0:
@@ -21,12 +60,12 @@ func BuildProject(tech string, projectName string) error {
 		return errors.New("dependency not found")
 	}
 
-	wd, err := createDirectory(projectName)
+	wd, err := CreateDirectory(fs, projectName)
 	if err != nil {
 		return err
 	}
 
-	err = populateProject(tech, wd)
+	err = PopulateProject(fs, cr, tech, wd)
 	if err != nil {
 		return err
 	}
@@ -35,7 +74,7 @@ func BuildProject(tech string, projectName string) error {
 }
 
 // createDirectory spins up a new directory for the project with the desired name at the root of the file system
-func createDirectory(projectName string) (string, error) {
+func CreateDirectory(fs FileSystem, projectName string) (string, error) {
 	var root string
 	if runtime.GOOS == "windows" {
 		root = os.Getenv("SystemDrive") + "\\"
@@ -44,7 +83,7 @@ func createDirectory(projectName string) (string, error) {
 	}
 
 	wd := filepath.Join(root, projectName)
-	err := os.Mkdir(wd, 0755)
+	err := fs.Mkdir(wd, 0755)
 	if err != nil {
 		return "", err
 	}
@@ -54,49 +93,49 @@ func createDirectory(projectName string) (string, error) {
 }
 
 // populateProject populates the created directory by calling the config function for the selected webapp technology
-func populateProject(tech string, wd string) error {
-	err := os.Chdir(wd)
+func PopulateProject(fs FileSystem, cr Commander, tech string, wd string) error {
+	err := fs.Chdir(wd)
 	if err != nil {
 		return err
 	}
 
-	err = initializeGitRepo()
+	err = InitializeGitRepo()
 	if err != nil {
 		log.Println("error initializing git repository:", err)
 	}
 
 	switch tech {
 	case "node":
-		return nodeConfig(wd)
+		return NodeConfig(fs, cr, wd)
 	case "python":
-		return pyConfig(wd)
+		return PyConfig(fs, cr, wd)
 	case "wordpress":
-		return wpConfig(wd)
+		return WpConfig(fs, cr, wd)
 	case "php":
-		return phpConfig(wd)
+		return PhpConfig(fs, cr, wd)
 	default:
 		return errors.New("unsupported technology")
 	}
 }
 
 // initializeGitRepo initializes a git repository in the working directory
-func initializeGitRepo() error {
+func InitializeGitRepo() error {
 	cmd := exec.Command("git", "init")
 	return cmd.Run()
 }
 
 // nodeConfig sets up a Node.js project
-func nodeConfig(wd string) error {
-	return runSetupScript(wd, "nodeSetup")
+func NodeConfig(fs FileSystem, cr Commander, wd string) error {
+	return RunSetupScript(fs, cr, wd, "nodeSetup")
 }
 
 // pyConfig sets up a Python project
-func pyConfig(wd string) error {
-	return runSetupScript(wd, "pySetup")
+func PyConfig(fs FileSystem, cr Commander, wd string) error {
+	return RunSetupScript(fs, cr, wd, "pySetup")
 }
 
 // wpConfig sets up a WordPress project
-func wpConfig(wd string) error {
+func WpConfig(fs FileSystem, cr Commander, wd string) error {
 	pwd, err := os.Executable()
 	if err != nil {
 		log.Println("Error getting executable path:", err)
@@ -105,71 +144,54 @@ func wpConfig(wd string) error {
 	pwd = filepath.Dir(pwd)
 	wpCLI := filepath.Join(pwd, "wp-cli.phar")
 	newWPCLI := filepath.Join(wd, "wp-cli.phar")
-	err = linkFile(wpCLI, newWPCLI)
+	err = LinkFile(fs, wpCLI, newWPCLI)
 	if err != nil {
 		log.Println("Error linking wp-cli.phar:", err)
 		return err
 	}
-	return runSetupScript(wd, "wpSetup")
+	return RunSetupScript(fs, cr, wd, "wpSetup")
 }
 
 // phpConfig sets up a PHP project
-func phpConfig(wd string) error {
-	return runSetupScript(wd, "phpSetup")
+func PhpConfig(fs FileSystem, cr Commander, wd string) error {
+	return RunSetupScript(fs, cr, wd, "phpSetup")
 }
 
 // runSetupScript runs a setup script for the given technology, this used to be several individual but untestable functions
 // they have been abstracted into this for the sake of DRY and testability
-func runSetupScript(wd, scriptName string) error {
+func RunSetupScript(fs FileSystem, cr Commander, wd, scriptName string) error {
 	pwd, err := os.Executable()
 	if err != nil {
 		return err
 	}
 	pwd = filepath.Dir(pwd)
-	newScript := ""
 	keywordOne := "bash"
+	var script, newScript string
+
 	if scriptName == "nodeSetup" && runtime.GOOS == "windows" {
-		script := filepath.Join(pwd, "scripts", scriptName+".bat")
+		script = filepath.Join(pwd, "scripts", scriptName+".bat")
 		newScript = filepath.Join(wd, scriptName+".bat")
 		keywordOne = "cmd"
-		err = linkFile(script, newScript)
-		if err != nil {
-			return err
-		}
 	} else {
-		script := filepath.Join(pwd, "scripts", scriptName+".sh")
+		script = filepath.Join(pwd, "scripts", scriptName+".sh")
 		newScript = filepath.Join(wd, scriptName+".sh")
-		err = linkFile(script, newScript)
-		if err != nil {
-			return err
-		}
+	}
+
+	err = LinkFile(fs, script, newScript)
+	if err != nil {
+		return err
 	}
 
 	log.Println("Setup script link created, running setup script:", newScript)
-	var cmd *exec.Cmd
 	if keywordOne == "cmd" {
-		cmd = exec.Command(keywordOne, "/C", filepath.Base(newScript))
-	} else {
-		cmd = exec.Command(keywordOne, filepath.Base(newScript))
+		return cr.RunCommand("cmd", "/C", filepath.Base(newScript))
 	}
-	cmd.Dir = wd
-
-	// this redirects the script output to the console but isn't logged
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
-	if err != nil {
-		log.Println("Error:", err)
-		return err
-	}
-	log.Println("Finished running setup script")
-	return nil
+	return cr.RunCommand("bash", filepath.Base(newScript))
 
 }
 
 // file link creates a hard link between two files
 // this used to be part of several functions but has also been abstracted out for the sake of DRY and testability
-func linkFile(src, dest string) error {
-	return os.Link(src, dest)
+func LinkFile(fs FileSystem, src, dest string) error {
+	return fs.Link(src, dest)
 }

@@ -233,5 +233,5 @@ func TestSetupLogger(t *testing.T) {
 
 	SetupLogger(logFile)
 	log.Println("Test log message")
-	// Verify log file content if necessary
+	// Verify log file content
 }

@@ -4,16 +4,15 @@ import (
 	"errors"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	internals "webspinner/internal"
 )
 
 // BuildProject is the entry point for the project setup process
-func BuildProject(fs internals.FileSystem, cr internals.Commander, tech string, projectName string) error {
+func BuildProject(fs internals.FileSystem, cr internals.Commander, fh internals.FileHandler, tech string, projectName string) error {
 
-	techStatus := DependencyStatus(cr, tech)
+	techStatus := DependencyStatus(cr, fh, tech)
 	switch techStatus {
 	case 0:
 		log.Println("Dependency Successfully Installed")
@@ -63,7 +62,7 @@ func PopulateProject(fs internals.FileSystem, cr internals.Commander, tech strin
 		return err
 	}
 
-	err = InitializeGitRepo()
+	_, err = cr.RunCommand("git", "init")
 	if err != nil {
 		log.Println("error initializing git repository:", err)
 	}
@@ -80,12 +79,6 @@ func PopulateProject(fs internals.FileSystem, cr internals.Commander, tech strin
 	default:
 		return errors.New("unsupported technology")
 	}
-}
-
-// initializeGitRepo initializes a git repository in the working directory
-func InitializeGitRepo() error {
-	cmd := exec.Command("git", "init")
-	return cmd.Run()
 }
 
 // nodeConfig sets up a Node.js project
@@ -148,8 +141,18 @@ func RunSetupScript(fs internals.FileSystem, cr internals.Commander, wd, scriptN
 
 	log.Println("Setup script link created, running setup script:", newScript)
 	if keywordOne == "cmd" {
-		return cr.RunCommand("cmd", "/C", filepath.Base(newScript))
+		_, err = cr.RunCommand("cmd", "/C", filepath.Base(newScript))
+		if err != nil {
+			log.Println("Error running setup script:", err)
+			return err
+		}
 	}
-	return cr.RunCommand("bash", filepath.Base(newScript))
+	_, err = cr.RunCommand("bash", filepath.Base(newScript))
+	if err != nil {
+		log.Println("Error running setup script:", err)
+		return err
+	}
+
+	return err
 
 }

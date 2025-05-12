@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
-	"os/exec"
 	"runtime"
 	internals "webspinner/internal"
 )
@@ -27,27 +25,28 @@ func (d *dependencies) findDependency(key string) (string, bool) {
 
 // dependencyStatus checks whether dependencies are already installed and calls the appropriate functions to install them if they are not.
 
-func DependencyStatus(cr internals.Commander, dependency string) int {
+func DependencyStatus(cr internals.Commander, fh internals.FileHandler, dependency string) int {
 
 	// Check if the dependency is already installed
-	err := cr.RunCommand(dependency, "--version")
-	if err != nil {
+	output, err := cr.RunCommand(dependency, "--version")
+	outputString := string(output)
+	if err != nil && outputString == "" {
 		log.Printf("%s is not installed \n", dependency)
-		return getDependencies(dependency)
+		return getDependencies(cr, fh, dependency)
 	}
 	// If the dependency is already installed, prints the version number and returns status code 1
-	log.Printf("%s is installed \n", dependency)
+	log.Printf("%s is installed - version: %s \n", dependency, output)
 	return 1
 	// status code returns 1 if dependency is already installed, 0 if dependency is installed successfully, -1 if dependency installation fails
 }
 
-func getDependencies(dependency string) int {
+func getDependencies(cr internals.Commander, fh internals.FileHandler, dependency string) int {
 
 	// Get the user's operating system
 	userOs := runtime.GOOS
 
 	// Open the dependency_id.json file
-	jsonFile, JsonfileErr := os.Open("dependency_id.json")
+	jsonFile, JsonfileErr := fh.Open("dependency_id.json")
 	if JsonfileErr != nil {
 		log.Println("Error reading dependency names from file")
 		return -1
@@ -74,7 +73,7 @@ func getDependencies(dependency string) int {
 		}
 		// call installDependency function to install the dependency and return status code
 		log.Println("Calling fucntion to install dependency")
-		return installDependency(userOs, dependencyId)
+		return installDependency(cr, fh, userOs, dependencyId)
 	} else {
 		log.Println("Unsupported OS")
 		return -1
@@ -82,8 +81,7 @@ func getDependencies(dependency string) int {
 
 }
 
-func installDependency(userOs string, dependency string) int {
-	var cmd *exec.Cmd
+func installDependency(cr internals.Commander, fh internals.FileHandler, userOs string, dependency string) int {
 
 	if dependency != "Automattic.Wordpress" {
 		// switch statement to install dependencies based on user's package manager
@@ -91,36 +89,58 @@ func installDependency(userOs string, dependency string) int {
 		case "windows":
 			// installs dependency with silent flag and accepts package/source agreements
 			log.Println("Attempting to install dependency using winget, please follow any prompts")
-			cmd = exec.Command("winget", "install", "-e", "--id", dependency, "--silent", "--accept-package-agreements", "--accept-source-agreements")
+			_, err := cr.RunCommand("winget", "install", "-e", "--id", dependency, "--silent", "--accept-package-agreements", "--accept-source-agreements")
+			if err != nil {
+				log.Printf("Error installing %s: %v\n", dependency, err)
+				return -1
+			}
+
 		case "linux":
 			log.Println("Attempting to install dependency using apt, please follow any prompts")
-			cmd = exec.Command("sudo", "apt", "install", "-y", dependency)
+			_, err := cr.RunCommand("sudo", "apt", "install", "-y", dependency)
+			if err != nil {
+				log.Printf("Error installing %s: %v\n", dependency, err)
+				return -1
+			}
+
 		case "darwin":
 			log.Println("Attempting to install dependency using homebrew, please follow any prompts")
-			cmd = exec.Command("brew", "install", dependency)
+			_, err := cr.RunCommand("brew", "install", dependency)
+			if err != nil {
+				log.Printf("Error installing %s: %v\n", dependency, err)
+				return -1
+			}
+
 		default:
 			log.Printf("Unsupported OS: %s \n", userOs)
 			return -1
 		}
+
 	} else {
 		// installs wordpress using curl
-		getDependencies("php")
+		getDependencies(cr, fh, "php")
 		log.Println("Attempting to install Wordpress using curl, please follow any prompts")
 		url := "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
 		output := "wp-cli.phar"
 		switch userOs {
 		case "windows":
-			cmd = exec.Command("powershell", "-Command", "curl", "-o", output, url)
-		default:
-			cmd = exec.Command("curl", "-o", output, url)
-		}
-	}
+			_, err := cr.RunCommand("powershell", "-Command", "curl", "-o", output, url)
+			if err != nil {
+				log.Printf("Error installing %s: %v\n", dependency, err)
+				return -1
+			}
 
-	if err := cmd.Run(); err != nil {
-		log.Printf("Error installing %s: %v\n", dependency, err)
-		return -1
+		default:
+			_, err := cr.RunCommand("curl", "-o", output, url)
+			if err != nil {
+				log.Printf("Error installing %s: %v\n", dependency, err)
+				return -1
+			}
+
+		}
 	}
 
 	log.Printf("%s installed successfully \n", dependency)
 	return 0
+
 }

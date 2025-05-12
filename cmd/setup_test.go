@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"log"
 	"os"
 	"testing"
@@ -38,29 +40,57 @@ type MockCommander struct {
 	RunCommandErr error
 }
 
-func (mc *MockCommander) RunCommand(command string, args ...string) error {
+func (mc *MockCommander) RunCommand(command string, args ...string) ([]byte, error) {
 	if mc.RunCommandErr != nil {
-		return mc.RunCommandErr
+		return nil, mc.RunCommandErr
 	}
-	return nil
+	return nil, nil
+}
+
+type MockFileHandler struct {
+	FileContent []byte // Simulated file content
+	Err         error  // Simulated error
+}
+
+// Open simulates opening a file
+func (mfh MockFileHandler) Open(name string) (io.ReadCloser, error) {
+	if mfh.Err != nil {
+		// Simulate an error when opening the file
+		return nil, mfh.Err
+	}
+	// Simulate successful file opening with the provided content
+	return io.NopCloser(bytes.NewReader(mfh.FileContent)), nil
+}
+
+type MockOSCommandRunner struct {
+	RunCommandOutputErr error
+}
+
+func (moscr *MockOSCommandRunner) RunCommandOutput(name string, args ...string) (string, error) {
+	if moscr.RunCommandOutputErr != nil {
+		return "error", moscr.RunCommandOutputErr
+	}
+	return "version", nil
 }
 
 func TestBuildProject(t *testing.T) {
 	mockFS := &MockFileSystem{}
 	mockCR := &MockCommander{}
+	mockfh := &MockFileHandler{}
 	mockFS.ChdirErr = nil
 	mockFS.LinkErr = nil
 	mockFS.MkdirErr = nil
 	mockCR.RunCommandErr = nil
 
 	// Test successful project build
-	err := BuildProject(mockFS, mockCR, "node", "testProject")
+	err := BuildProject(mockFS, mockCR, mockfh, "node", "testProject")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
 	// Test unsupported technology
-	err = BuildProject(mockFS, mockCR, "unsupportedTech", "testProject")
+	mockCR.RunCommandErr = errors.New("unsupported technology")
+	err = BuildProject(mockFS, mockCR, mockfh, "unsupportedTech", "testProject")
 	if err == nil || err.Error() != "dependency not found" {
 		t.Fatalf("Expected unfound dependency error, got %v", err)
 	}
@@ -116,24 +146,6 @@ func TestPopulateProject(t *testing.T) {
 	err = PopulateProject(mockFS, mockCR, "node", "/testProject")
 	if err == nil || err.Error() != "failed to change directory" {
 		t.Fatalf("Expected directory change error, got %v", err)
-	}
-}
-
-func TestInitializeGitRepo(t *testing.T) {
-	mockCR := &MockCommander{}
-	mockCR.RunCommandErr = nil
-
-	// Test successful git initialization
-	err := mockCR.RunCommand("git", "init")
-	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
-	}
-
-	// Test git initialization failure
-	mockCR.RunCommandErr = errors.New("git init failed")
-	err = mockCR.RunCommand("git", "init")
-	if err == nil || err.Error() != "git init failed" {
-		t.Fatalf("Expected git init error, got %v", err)
 	}
 }
 

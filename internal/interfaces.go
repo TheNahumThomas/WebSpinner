@@ -1,6 +1,7 @@
 package internals
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"os"
@@ -14,7 +15,7 @@ type FileSystem interface {
 }
 
 type Commander interface {
-	RunCommand(command string, kwargs ...string) error
+	RunCommand(command string, kwargs ...string) ([]byte, error)
 }
 
 type FileHandler interface {
@@ -44,11 +45,16 @@ func (fh OSFileHandler) Open(name string) (io.ReadCloser, error) {
 
 type ExecCommander struct{}
 
-func (ec ExecCommander) RunCommand(command string, args ...string) error {
+func (ec ExecCommander) RunCommand(command string, args ...string) ([]byte, error) {
 	cmd := exec.Command(command, args...)
 
-	cmd.Stdout = log.Writer()
-	cmd.Stderr = log.Writer() // This redirects command output (such as setup script output) to the console while also logging it
+	var outputBuffer bytes.Buffer
 
-	return cmd.Run()
+	multiWriter := io.MultiWriter(&outputBuffer, log.Writer())
+	cmd.Stdout = multiWriter
+	cmd.Stderr = multiWriter // This redirects command output (such as setup script output) to the console while also logging it
+
+	err := cmd.Run()
+
+	return outputBuffer.Bytes(), err
 }

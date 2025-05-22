@@ -50,11 +50,13 @@ func (ec ExecCommander) RunCommand(command string, args ...string) ([]byte, erro
 
 	var outputBuffer bytes.Buffer
 
-	multiWriter := io.MultiWriter(&outputBuffer, log.Writer())
-	cmd.Stdout = multiWriter
-	cmd.Stderr = multiWriter // This redirects command output (such as setup script output) to the console while also logging it
+	Writer := io.Writer(&outputBuffer)
+	cmd.Stdout = Writer
+	cmd.Stderr = Writer // This redirects command output (such as setup script output) to the console while also logging it
 
 	err := cmd.Run()
+
+	log.Println(outputBuffer.String())
 
 	return outputBuffer.Bytes(), err
 }

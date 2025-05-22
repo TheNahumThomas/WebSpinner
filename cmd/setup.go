@@ -146,11 +146,12 @@ func RunSetupScript(fs internals.FileSystem, cr internals.Commander, wd, scriptN
 			log.Println("Error running setup script:", err)
 			return err
 		}
-	}
-	_, err = cr.RunCommand("bash", filepath.Base(newScript))
-	if err != nil {
-		log.Println("Error running setup script:", err)
-		return err
+	} else {
+		_, err = cr.RunCommand("bash", filepath.Base(newScript))
+		if err != nil {
+			log.Println("Error running setup script:", err)
+			return err
+		}
 	}
 
 	return err

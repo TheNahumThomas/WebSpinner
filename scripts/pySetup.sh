@@ -1,14 +1,12 @@
 # Create a virtual environment
 echo "beginning script"
-apt-get update
-apt install python3.12-venv
-python3 -m ensurepip
+apt install python3-pip python3.12-venv
 python3 -m venv venv
 echo "env created"
 source venv/bin/activate
 echo "env activated"
 # Install Flask as dependency (this also works for WSL and is actually necessary for it to work)
-python3 -m pip install Flask
+python3 -m pip install Flask >/dev/null 2>&1 && echo "Flask installed." || echo "Flask installation failed."
 echo "flask installed"
 # Create the main Flask server file
 mkdir "app"
